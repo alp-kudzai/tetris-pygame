@@ -3,6 +3,7 @@ import sys
 import random
 from tetris_blocks import O_B, I_B, J_B, S_B, Z_B, L_B, T_B
 
+#TODO: implement scoring
 RES = [300,600]
 SIZE = 30
 VERT = 10
@@ -44,30 +45,41 @@ class DeadBlocks:
         i_tracker = HOR-1
         down_steps = 0
         cleared = False
-        print(f'Lines: {self.lines}\n')
+        score = 0
+        #print(f'Lines: {self.lines}\n')
         for i in range(HOR-1, 0, -1):
             line = self.lines[i]
             if len(line) == VERT:
-                print(f'Full line, deleting cubes: {line}\n')
+                #print(f'Full line, deleting cubes: {line}\n')
                 for cube in line:
                     for shp in self.dead_blocks:
                         shp.find_delete(cube)
                 down_steps += 1
                 cleared = True
+                score += 1
             if not cleared:
                 if down_steps > 0:
-                    print(f'Moving cubes in line down: {line} by {down_steps} steps')
+                    #print(f'Moving cubes in line down: {line} by {down_steps} steps')
                     for cube in line:
                         cube.move_ip((0, down_steps*SIZE))
-                    print(f'Line is now: {line}\n')
+                    #print(f'Line is now: {line}\n')
                 
                 temp_lines[i_tracker] = line
                 i_tracker -= 1
             elif cleared:
-                print(f'Clearing a line {line}, it will not be in line no more!')
+                #print(f'Clearing a line {line}, it will not be in line no more!')
                 cleared = False
         self.lines = temp_lines.copy()
-        print(f'New Lines: {self.lines}\n')
+        if score == 1:
+            score = 100
+        elif score == 2:
+            score = 300
+        elif score == 3:
+            score = 750
+        else:
+            score *= 400
+        return score
+        #print(f'New Lines: {self.lines}\n')
                     
     def add(self, block):
         self.dead_blocks.append(block)
@@ -83,10 +95,13 @@ class DeadBlocks:
 
     def render(self):
         if len(self.dead_blocks) > 0:
-            rects = self.unpack()
-            for r in rects:
-                pg.draw.rect(self.screen, 'grey', r)
+            for b in self.dead_blocks:
+                b.render()
+            # rects = self.unpack()
+            # for r in rects:
+            #     pg.draw.rect(self.screen, 'grey', r)
     
+#TODO: Implement hard-drop
 class Shape:
     def __init__(self, s_type, shapes, color, screen):
         self.s_type = s_type
@@ -108,7 +123,7 @@ class Shape:
             'current': self.curr_block,
         }
         return str(data)
-    #
+
     def create_block(self):
         temp_y = self.top_y
         for y in self.curr_block:
@@ -265,13 +280,19 @@ class Game:
         self.dead_blocks = DeadBlocks(self.screen)
         #movement
         self.x_movement = [False, False] #left, right
-        self.y_movement = [False, False] #down,rush
+        self.y_movement = [False, False] #soft-drop, hard-drop
+        self.score = 0
+        self.score_text = self.font.render(str(self.score), True, (250, 128, 114))
 
     def setShape(self):
         shpe_color = random.choice(self.BLOCKS)
         shape = Shape(shpe_color[2], shpe_color[0], shpe_color[1], self.screen)
         self.live_block = shape
         self.live_block.create_block()
+
+    def renderScore(self):
+        self.score_text = self.font.render(str(self.score), True, (250, 128, 114))
+        self.screen.blit(self.score_text, (RES[0]-(SIZE*2), 0))
 
     def renderFPStext(self):
         self.fpsText = self.font.render(str(round(self.clock.get_fps(),2)), True, (127,127,127))
@@ -352,11 +373,12 @@ class Game:
             self.processInput()
             if self.live_block.falling == False:
                 self.dead_blocks.add(self.live_block)
-                self.dead_blocks.check_lines()
+                self.score += self.dead_blocks.check_lines()
                 self.setShape()
             
             #Render here
             self.renderFPStext()
+            self.renderScore()
             
             self.live_block.render()
             self.dead_blocks.render()
