@@ -3,7 +3,7 @@ import sys
 import random
 from tetris_blocks import O_B, I_B, J_B, S_B, Z_B, L_B, T_B
 
-#TODO: implement scoring
+#TODO: Gameover and show highscore
 RES = [300,600]
 SIZE = 30
 VERT = 10
@@ -83,10 +83,14 @@ class DeadBlocks:
                     
     def add(self, block):
         self.dead_blocks.append(block)
-        for cube in block.block_rects:
-            self.cubes.append(cube)
-            if cube not in self.lines[cube.y//SIZE]:
-                self.lines[cube.y//SIZE].append(cube)
+        try:
+            for cube in block.block_rects:
+                self.cubes.append(cube)
+                if cube not in self.lines[cube.y//SIZE]:
+                    self.lines[cube.y//SIZE].append(cube)
+            return False
+        except KeyError:
+            return True
            
 
     def unpack(self):
@@ -283,12 +287,20 @@ class Game:
         self.y_movement = [False, False] #soft-drop, hard-drop
         self.score = 0
         self.score_text = self.font.render(str(self.score), True, (250, 128, 114))
+        
+        self.gameover = False
+        self.go_font = pg.font.SysFont('Times New Roman', 50)
+        self.gameover_text = self.go_font.render(f'Game Over\nScore: {self.score}', True, (250, 128, 114))
 
     def setShape(self):
         shpe_color = random.choice(self.BLOCKS)
         shape = Shape(shpe_color[2], shpe_color[0], shpe_color[1], self.screen)
         self.live_block = shape
         self.live_block.create_block()
+
+    def renderGameOver(self):
+        self.gameover_text = self.go_font.render(f'Game Over\nScore: {self.score}', True, (250, 128, 114))
+        self.screen.blit(self.gameover_text, (RES[0]//2-SIZE*4, RES[1]//2-SIZE*2))
 
     def renderScore(self):
         self.score_text = self.font.render(str(self.score), True, (250, 128, 114))
@@ -372,17 +384,19 @@ class Game:
                 frame = 0
             self.processInput()
             if self.live_block.falling == False:
-                self.dead_blocks.add(self.live_block)
+                self.gameover = self.dead_blocks.add(self.live_block)
                 self.score += self.dead_blocks.check_lines()
                 self.setShape()
             
             #Render here
             self.renderFPStext()
             self.renderScore()
-            
-            self.live_block.render()
-            self.dead_blocks.render()
-            self.drawGrid()
+            if not self.gameover:
+                self.live_block.render()
+                self.dead_blocks.render()
+                self.drawGrid()
+            else:
+                self.renderGameOver()
 
             pg.display.flip()
             self.clock.tick(self.FPS)
